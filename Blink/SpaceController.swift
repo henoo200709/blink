@@ -43,10 +43,7 @@ class SpaceController: UIViewController {
     static var activityType: String { "space.ctrl.ui.state" }
   }
 
-  final private lazy var _viewportsController = UIPageViewController(
-    transitionStyle: .scroll,
-    navigationOrientation: .horizontal
-  )
+  final private lazy var _viewportsController = PageViewController()
   
   var sceneRole: UISceneSession.Role = UISceneSession.Role.windowApplication
   
@@ -57,20 +54,12 @@ class SpaceController: UIViewController {
   private let _commandsHUD = CommandsHUGView(frame: .zero)
   
   private var _overlay = UIView()
-  private var _spaceControllerAnimating: Bool = false
+//  private var _spaceControllerAnimating: Bool = false
   private weak var _termViewToFocus: TermView? = nil
   var stuckKeyCode: KeyCode? = nil
   
   var safeFrame: CGRect {
     _overlay.frame
-  }
-  
-  func freezeTabs() {
-    _viewportsController.dataSource = nil
-  }
-  
-  func unfreezeTabs() {
-    _viewportsController.dataSource = self
   }
   
   public override func viewDidLayoutSubviews() {
@@ -92,16 +81,6 @@ class SpaceController: UIViewController {
     _commandsHUD.setNeedsLayout()
     
     FaceCamManager.update(in: self)
-   
-    DispatchQueue.main.async {
-      self.forEachActive { t in
-        if t.viewIsLoaded && t.view?.superview == nil {
-          _ = t.removeFromContainer()
-        }
-      }
-      self.unfreezeTabs()
-    }
-    
   }
   
   private func forEachActive(block:(TermController) -> ()) {
@@ -245,6 +224,12 @@ class SpaceController: UIViewController {
     
     nc.addObserver(self, selector: #selector(_termViewIsReady(n:)), name: NSNotification.Name(TermViewReadyNotificationKey), object: nil)
     
+    nc.addObserver(self, selector: #selector(_UISceneWillDeactivateNotification(_:)),
+                   name: UIScene.willDeactivateNotification, object: nil)
+    
+    nc.addObserver(self, selector: #selector(_UISceneDidActivateNotification(_:)),
+                   name: UIScene.didActivateNotification, object: nil)
+    
     nc.addObserver(self, selector: #selector(_UISceneDidEnterBackgroundNotification(_:)),
                    name: UIScene.didEnterBackgroundNotification, object: nil)
     
@@ -257,6 +242,7 @@ class SpaceController: UIViewController {
     nc.addObserver(self, selector: #selector(_UISceneDidCompleteSystemSnapshotSequence(_:)),
                    name: .init(rawValue: "UISceneDidCompleteSystemSnapshotSequence"), object: nil)
   }
+  
   
   @objc func _UISceneWillBeginSystemSnapshotSequence(_ n: Notification) {
     if let scene = n.object as? UIWindowScene {
@@ -273,21 +259,42 @@ class SpaceController: UIViewController {
       print("_UISceneDidCompleteSystemSnapshotSequence", "???")
     }
   }
-                   
-  @objc func _UISceneDidEnterBackgroundNotification(_ n: Notification) {
+  
+  @objc func _UISceneDidActivateNotification(_ n: Notification) {
+    guard let scene = n.object as? UIWindowScene,
+          view.window?.windowScene === scene
+    else {
+      return
+    }
+    print("---", "_UISceneDidActivateNotification")
+    _viewportsController.restoreSides()
+  }
+  
+  @objc func _UISceneWillDeactivateNotification(_ n: Notification) {
     guard let scene = n.object as? UIWindowScene,
           view.window?.windowScene === scene
     else {
       return
     }
     
-    let currentTerm = currentTerm()
-    
-    forEachActive { ctrl in
-      if ctrl.viewIsLoaded && ctrl !== currentTerm {
-        _ = ctrl.removeFromContainer()
-      }
-    }
+    print("---", "_UISceneWillDeactivateNotification")
+    _viewportsController.removeSides()
+  }
+                   
+  @objc func _UISceneDidEnterBackgroundNotification(_ n: Notification) {
+//    guard let scene = n.object as? UIWindowScene,
+//          view.window?.windowScene === scene
+//    else {
+//      return
+//    }
+//
+//    let currentTerm = currentTerm()
+//
+//    forEachActive { ctrl in
+//      if ctrl.viewIsLoaded && ctrl !== currentTerm {
+//        _ = ctrl.removeFromContainer()
+//      }
+//    }
   }
   
   @objc func _UISceneWillEnterForegroundNotification(_ n: Notification) {
@@ -297,11 +304,11 @@ class SpaceController: UIViewController {
       return
     }
     
-    forEachActive { ctrl in
-      if ctrl.viewIsLoaded {
-        ctrl.placeToContainer()
-      }
-    }
+//    forEachActive { ctrl in
+//      if ctrl.viewIsLoaded {
+//        ctrl.placeToContainer()
+//      }
+//    }
   }
   
   private func _attachHUD() {
@@ -327,9 +334,8 @@ class SpaceController: UIViewController {
   
   func _createShell(
     userActivity: NSUserActivity?,
-    animated: Bool,
-    completion: ((Bool) -> Void)? = nil)
-  {
+    animated: Bool
+  ) {
     let term = TermController(sceneRole: sceneRole)
     term.delegate = self
     term.userActivity = userActivity
@@ -346,11 +352,7 @@ class SpaceController: UIViewController {
     
     _currentKey = term.meta.key
     
-    _viewportsController.setViewControllers([term], direction: .forward, animated: animated) { (didComplete) in
-      self._displayHUD()
-      self._attachInputToCurrentTerm()
-      completion?(didComplete)
-    }
+    _viewportsController.setViewControllers([term], direction: .forward, animated: animated)
   }
   
   func _closeCurrentSpace() {
@@ -386,15 +388,7 @@ class SpaceController: UIViewController {
     term.bgColor = view.backgroundColor ?? .black
     
     self._currentKey = term.meta.key
-    
-    _spaceControllerAnimating = true
-    _viewportsController.setViewControllers([term], direction: direction, animated: true) { (didComplete) in
-      self._displayHUD()
-      if attachInput {
-        self._attachInputToCurrentTerm()
-      }
-      self._spaceControllerAnimating = false
-    }
+    _viewportsController.setViewControllers([term], direction: direction, animated: true)
   }
   
   @objc func _focusOnShell() {
@@ -526,55 +520,55 @@ extension SpaceController: UIStateRestorable {
   }
 }
 
-extension SpaceController: UIPageViewControllerDelegate {
-  public func pageViewController(
-    _ pageViewController: UIPageViewController,
-    didFinishAnimating finished: Bool,
-    previousViewControllers: [UIViewController],
-    transitionCompleted completed: Bool) {
-    guard completed else {
-      return
-    }
-    
-    guard let termController = pageViewController.viewControllers?.first as? TermController
-    else {
-      return
-    }
-    _currentKey = termController.meta.key
-    _displayHUD()
-    _attachInputToCurrentTerm()
-  }
-}
+//extension SpaceController: UIPageViewControllerDelegate {
+//  public func pageViewController(
+//    _ pageViewController: UIPageViewController,
+//    didFinishAnimating finished: Bool,
+//    previousViewControllers: [UIViewController],
+//    transitionCompleted completed: Bool) {
+//    guard completed else {
+//      return
+//    }
+//    
+//    guard let termController = pageViewController.viewControllers?.first as? TermController
+//    else {
+//      return
+//    }
+//    _currentKey = termController.meta.key
+//    _displayHUD()
+//    _attachInputToCurrentTerm()
+//  }
+//}
 
-extension SpaceController: UIPageViewControllerDataSource {
-  private func _controller(controller: UIViewController, advancedBy: Int) -> UIViewController? {
-    guard let ctrl = controller as? TermController else {
-      return nil
-    }
-    let key = ctrl.meta.key
-    guard
-      let idx = _viewportsKeys.firstIndex(of: key)?.advanced(by: advancedBy),
-      _viewportsKeys.indices.contains(idx)
-    else {
-      return nil
-    }
-    
-    let newKey = _viewportsKeys[idx]
-    let newCtrl: TermController = SessionRegistry.shared[newKey]
-    newCtrl.delegate = self
-    newCtrl.bgColor = view.backgroundColor ?? .black
-    return newCtrl
-  }
-  
-  public func pageViewController(_ pageViewController: UIPageViewController, viewControllerBefore viewController: UIViewController) -> UIViewController? {
-    _controller(controller: viewController, advancedBy: -1)
-  }
-  
-  public func pageViewController(_ pageViewController: UIPageViewController, viewControllerAfter viewController: UIViewController) -> UIViewController? {
-    _controller(controller: viewController, advancedBy: 1)
-  }
-  
-}
+//extension SpaceController: UIPageViewControllerDataSource {
+//  private func _controller(controller: UIViewController, advancedBy: Int) -> UIViewController? {
+//    guard let ctrl = controller as? TermController else {
+//      return nil
+//    }
+//    let key = ctrl.meta.key
+//    guard
+//      let idx = _viewportsKeys.firstIndex(of: key)?.advanced(by: advancedBy),
+//      _viewportsKeys.indices.contains(idx)
+//    else {
+//      return nil
+//    }
+//
+//    let newKey = _viewportsKeys[idx]
+//    let newCtrl: TermController = SessionRegistry.shared[newKey]
+//    newCtrl.delegate = self
+//    newCtrl.bgColor = view.backgroundColor ?? .black
+//    return newCtrl
+//  }
+//
+//  public func pageViewController(_ pageViewController: UIPageViewController, viewControllerBefore viewController: UIViewController) -> UIViewController? {
+//    _controller(controller: viewController, advancedBy: -1)
+//  }
+//
+//  public func pageViewController(_ pageViewController: UIPageViewController, viewControllerAfter viewController: UIViewController) -> UIViewController? {
+//    _controller(controller: viewController, advancedBy: 1)
+//  }
+//
+//}
 
 extension SpaceController: TermControlDelegate {
   
@@ -771,8 +765,7 @@ extension SpaceController {
       sessions.count > 1,
       let session = view.window?.windowScene?.session,
       let idx = sessions.firstIndex(of: session)?.advanced(by: 1),
-      let term = currentTerm(),
-      _spaceControllerAnimating == false
+      let term = currentTerm()
     else  {
         return
     }
@@ -803,8 +796,7 @@ extension SpaceController {
       let nextScene = nextSession.scene as? UIWindowScene,
       let delegate = nextScene.delegate as? SceneDelegate,
       let nextWindow = delegate.window,
-      let nextSpaceCtrl = nextWindow.rootViewController as? SpaceController,
-      nextSpaceCtrl._spaceControllerAnimating == false
+      let nextSpaceCtrl = nextWindow.rootViewController as? SpaceController
     else {
       return
     }
@@ -915,13 +907,7 @@ extension SpaceController {
     let term: TermController = SessionRegistry.shared[key]
     let direction: UIPageViewController.NavigationDirection = currentIdx < idx ? .forward : .reverse
 
-    _spaceControllerAnimating = true
-    _viewportsController.setViewControllers([term], direction: direction, animated: animated) { (didComplete) in
-      self._currentKey = term.meta.key
-      self._displayHUD()
-      self._attachInputToCurrentTerm()
-      self._spaceControllerAnimating = false
-    }
+    _viewportsController.setViewControllers([term], direction: direction, animated: animated)
   }
   
   private func _advanceShell(by: Int, animated: Bool = true) {
@@ -963,4 +949,57 @@ extension SpaceController: CommandsHUDViewDelegate {
   }
   
   @objc func spaceController() -> SpaceController? { self }
+}
+
+extension SpaceController: PageViewControllerDelegate, PageViewControllerDataSource {
+  
+  private func _controller(controller: UIViewController, advancedBy: Int) -> UIViewController? {
+    guard let ctrl = controller as? TermController else {
+      return nil
+    }
+    let key = ctrl.meta.key
+    guard
+      let idx = _viewportsKeys.firstIndex(of: key)?.advanced(by: advancedBy),
+      _viewportsKeys.indices.contains(idx)
+    else {
+      return nil
+    }
+    
+    let newKey = _viewportsKeys[idx]
+    let newCtrl: TermController = SessionRegistry.shared[newKey]
+    newCtrl.delegate = self
+    newCtrl.bgColor = view.backgroundColor ?? .black
+    return newCtrl
+  }
+    
+  func pageViewController(_ pageViewController: PageViewController, willStartScrollingFrom startingViewController: UIViewController, destinationViewController: UIViewController) {
+    
+  }
+  
+  func pageViewController(_ pageViewController: PageViewController, isScrollingFrom startingViewController: UIViewController, destinationViewController: UIViewController?, progress: CGFloat) {
+    
+  }
+  
+  func pageViewController(_ pageViewController: PageViewController, didFinishScrollingFrom startingViewController: UIViewController, destinationViewController: UIViewController, transitionSuccessful: Bool) {
+    print("---", "destinationViewController \(transitionSuccessful)")
+    guard
+      transitionSuccessful,
+      let term = destinationViewController as? TermController
+    else {
+      return
+    }
+    print("---", "destinationViewController set focus")
+    self._currentKey = term.meta.key
+    self._displayHUD()
+    self._attachInputToCurrentTerm()
+  }
+  
+  func pageViewController(_ pageViewController: PageViewController, viewControllerBeforeViewController viewController: UIViewController) -> UIViewController? {
+    _controller(controller: viewController, advancedBy: -1)
+  }
+  
+  func pageViewController(_ pageViewController: PageViewController, viewControllerAfterViewController viewController: UIViewController) -> UIViewController? {
+    _controller(controller: viewController, advancedBy: 1)
+  }
+  
 }

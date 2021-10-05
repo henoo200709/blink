@@ -46,79 +46,79 @@ import AVFoundation
   func currentTerm() -> TermController!
 }
 
-private class ProxyView: UIView {
-  var controlledView: UIView? = nil
-  private var _cancelable: AnyCancellable? = nil
-  
-  override func willMove(toSuperview newSuperview: UIView?) {
-    super.willMove(toSuperview: newSuperview)
-    if superview == nil {
-      _cancelable = nil
-    }
-  }
-  
-  override func didMoveToSuperview() {
-    super.didMoveToSuperview()
-    
-    _cancelable = nil
-    
-    guard
-      let parent = superview
-    else {
-      return
-    }
-    
-    _cancelable = parent.publisher(for: \.frame).sink { [weak self] frame in
-      guard let controlledView = self?.controlledView,
-            controlledView.superview != nil
-      else {
-        return
-      }
-      controlledView.frame = frame
-    }
-  
-    placeControlledView()
-  }
-  
-  override func layoutSubviews() {
-    super.layoutSubviews()
-    guard
-      let parent = superview,
-      let controlledView = controlledView
-    else {
-      return
-    }
-    controlledView.frame = parent.frame
-  }
-  
-  func removeControlledView() {
-    controlledView?.removeFromSuperview()
-  }
-  
-  func placeControlledView() {
-    guard
-      let parent = superview,
-      let container = parent.superview,
-      let controlledView = controlledView
-    else {
-      return
-    }
-    
-    controlledView.frame = parent.frame
-    
-    if
-      let sharedWindow = ShadowWindow.shared,
-      container.window == sharedWindow {
-      
-      sharedWindow.layer.removeFromSuperlayer()
-      container.addSubview(controlledView)
-      sharedWindow.refWindow.layer.addSublayer(sharedWindow.layer)
-      
-    } else {
-      container.addSubview(controlledView)
-    }
-  }
-}
+//private class ProxyView: UIView {
+//  var controlledView: UIView? = nil
+//  private var _cancelable: AnyCancellable? = nil
+//
+//  override func willMove(toSuperview newSuperview: UIView?) {
+//    super.willMove(toSuperview: newSuperview)
+//    if superview == nil {
+//      _cancelable = nil
+//    }
+//  }
+//
+//  override func didMoveToSuperview() {
+//    super.didMoveToSuperview()
+//
+//    _cancelable = nil
+//
+//    guard
+//      let parent = superview
+//    else {
+//      return
+//    }
+//
+//    _cancelable = parent.publisher(for: \.frame).sink { [weak self] frame in
+//      guard let controlledView = self?.controlledView,
+//            controlledView.superview != nil
+//      else {
+//        return
+//      }
+//      controlledView.frame = frame
+//    }
+//
+//    placeControlledView()
+//  }
+//
+//  override func layoutSubviews() {
+//    super.layoutSubviews()
+//    guard
+//      let parent = superview,
+//      let controlledView = controlledView
+//    else {
+//      return
+//    }
+//    controlledView.frame = parent.frame
+//  }
+//
+//  func removeControlledView() {
+//    controlledView?.removeFromSuperview()
+//  }
+//
+//  func placeControlledView() {
+//    guard
+//      let parent = superview,
+//      let container = parent.superview,
+//      let controlledView = controlledView
+//    else {
+//      return
+//    }
+//
+//    controlledView.frame = parent.frame
+//
+//    if
+//      let sharedWindow = ShadowWindow.shared,
+//      container.window == sharedWindow {
+//
+//      sharedWindow.layer.removeFromSuperlayer()
+//      container.addSubview(controlledView)
+//      sharedWindow.refWindow.layer.addSublayer(sharedWindow.layer)
+//
+//    } else {
+//      container.addSubview(controlledView)
+//    }
+//  }
+//}
 
 class TermController: UIViewController {
   private let _meta: SessionMeta
@@ -126,7 +126,7 @@ class TermController: UIViewController {
   private var _termDevice = TermDevice()
   private var _bag = Array<AnyCancellable>()
   private var _termView = TermView(frame: .zero)
-  private var _proxyView = ProxyView(frame: .zero)
+//  private var _proxyView = ProxyView(frame: .zero)
   private var _sessionParams: MCPParams = {
     let params = MCPParams()
     
@@ -172,17 +172,17 @@ class TermController: UIViewController {
     fatalError("init(coder:) has not been implemented")
   }
   
-  func placeToContainer() {
-    _proxyView.placeControlledView()
-  }
-  
-  func removeFromContainer() -> Bool {
-    if KBTracker.shared.input == _termView.webView {
-      return false
-    }
-    _proxyView.controlledView?.removeFromSuperview()
-    return true
-  }
+//  func placeToContainer() {
+//    _proxyView.placeControlledView()
+//  }
+//
+//  func removeFromContainer() -> Bool {
+//    if KBTracker.shared.input == _termView.webView {
+//      return false
+//    }
+//    _proxyView.controlledView?.removeFromSuperview()
+//    return true
+//  }
   
   public override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
     if !coordinator.isAnimated {
@@ -197,9 +197,9 @@ class TermController: UIViewController {
     _termDevice.delegate = self
     _termDevice.attachView(_termView)
     _termView.backgroundColor = _bgColor
-    _proxyView.controlledView = _termView;
-    _proxyView.isUserInteractionEnabled = false
-    view = _proxyView
+//    _proxyView.controlledView = _termView;
+//    _proxyView.isUserInteractionEnabled = false
+    view = _termView
   }
   
   public override func viewDidLoad() {
@@ -246,7 +246,7 @@ class TermController: UIViewController {
     _termView.additionalInsets = LayoutManager.buildSafeInsets(for: self, andMode: layoutMode)
     _termView.layoutLockedFrame = _sessionParams.layoutLockedFrame
     _termView.layoutLocked = _sessionParams.layoutLocked
-    _termView.setNeedsLayout()
+//    _termView.setNeedsLayout()
   }
   
   public override func viewDidLayoutSubviews() {
