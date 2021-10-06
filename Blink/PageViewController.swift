@@ -831,9 +831,11 @@ class PageViewController: UIViewController {
     
     let pageSize = view.bounds.size
     
+    let offsets:[CGFloat] = [10, 0, -10]
+    
     for (index, viewController) in viewControllers.enumerated() {
       viewController.view.frame = CGRect(
-        x: CGFloat(index) * pageSize.width,
+        x: CGFloat(index) * pageSize.width + offsets[index],
         y: 0,
         width: pageSize.width,
         height: pageSize.height
