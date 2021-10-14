@@ -589,20 +589,20 @@ extension SpaceController {
     view.window?.windowScene?.activationState == UIScene.ActivationState.foregroundActive
   }
   
-  public override var keyCommands: [UIKeyCommand]? {
-    guard
-      let input = KBTracker.shared.input,
-      foregroundActive
-    else {
-      return nil
-    }
-    
-    if let keyCode = stuckKeyCode {
-      return [UIKeyCommand(input: "", modifierFlags: keyCode.modifierFlags, action: #selector(onStuckOpCommand))]
-    }
-    
-    return input.blinkKeyCommands
-  }
+//  public override var keyCommands: [UIKeyCommand]? {
+//    guard
+//      let input = KBTracker.shared.input,
+//      foregroundActive
+//    else {
+//      return nil
+//    }
+//    
+//    if let keyCode = stuckKeyCode {
+//      return [UIKeyCommand(input: "", modifierFlags: keyCode.modifierFlags, action: #selector(onStuckOpCommand))]
+//    }
+//    
+//    return input.blinkKeyCommands
+//  }
   
   @objc func onStuckOpCommand() {
     stuckKeyCode = nil
@@ -624,8 +624,8 @@ extension SpaceController {
     case .press(let keyCode, mods: let mods):
       input.reportPress(UIKeyModifierFlags(rawValue: mods), keyId: keyCode.id)
       break;
-//    case .command(let c):
-//      _onCommand(c)
+    case .command(let c):
+      _onCommand(c)
     default:
       break;
     }

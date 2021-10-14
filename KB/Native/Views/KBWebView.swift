@@ -40,7 +40,8 @@ class KBWebView: KBWebViewBase {
   
   private var _loaded = false
   private(set) var webViewReady = false
-  private(set) var blinkKeyCommands: [BlinkCommand] = []
+  private var _blinkKeyPresses: [BlinkCommand] = []
+  private var _blinkKeyCommands: [BlinkCommand] = []
   private var _grabsCtrlSpace = false
   
   func configure(_ cfg: KBConfig) {
@@ -57,11 +58,15 @@ class KBWebView: KBWebViewBase {
   
   func _buildCommands(_ cfg: KBConfig) {
     _grabsCtrlSpace = false
+//  case hex(String, comment: String?)
+//  case press(KeyCode, mods: Int)
+//  case command(Command)
+//  case none
     
-    blinkKeyCommands = cfg.shortcuts.compactMap { shortcut in
-      if shortcut.action.isCommand {
-        return nil
-      }
+    _blinkKeyPresses = []
+    _blinkKeyCommands = []
+    
+    cfg.shortcuts.forEach { shortcut in
       let cmd = BlinkCommand(
         title: "",
         image: nil,
@@ -74,29 +79,42 @@ class KBWebView: KBWebViewBase {
       if shortcut.input == " " && shortcut.modifiers.contains([UIKeyModifierFlags.control]) {
         _grabsCtrlSpace = true
       }
-      return cmd
+      
+      if shortcut.action.isCommand {
+        _blinkKeyCommands.append(cmd)
+      } else {
+        _blinkKeyPresses.append(cmd)
+      }
     }
   }
   
-  func matchCommand(input: String, flags: UIKeyModifierFlags) -> (UIKeyCommand, UIResponder)? {
-    var result: (UIKeyCommand, UIResponder)? = nil
-
+  private func _findSpaceController() -> SpaceController? {
     var iterator: UIResponder? = self
-
     while let responder = iterator {
-      if let cmd = responder.keyCommands?.first(
-        where: {
-          $0.input == input && $0.modifierFlags == flags
-        }),
-         let action = cmd.action,
-         responder.canPerformAction(action, withSender: self)
-      {
-        result = (cmd, responder)
+      if let ctrl =  responder as? SpaceController {
+        return ctrl
       }
       iterator = responder.next
     }
-
-    return result
+    return nil
+  }
+  
+  func matchCommand(input: String, flags: UIKeyModifierFlags) -> (UIKeyCommand, UIResponder)? {
+    guard
+      let responder = _findSpaceController()
+    else {
+      return nil
+    }
+    
+    for cmd in _blinkKeyPresses where cmd.input == input && cmd.modifierFlags == flags {
+      return (cmd, responder)
+    }
+    
+    for cmd in _blinkKeyCommands where cmd.input == input && cmd.modifierFlags == flags {
+      return (cmd, responder)
+    }
+    
+    return nil
   }
   
   override func pressesBegan(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
