@@ -58,10 +58,6 @@ class KBWebView: KBWebViewBase {
   
   func _buildCommands(_ cfg: KBConfig) {
     _grabsCtrlSpace = false
-//  case hex(String, comment: String?)
-//  case press(KeyCode, mods: Int)
-//  case command(Command)
-//  case none
     
     _blinkKeyPresses = []
     _blinkKeyCommands = []

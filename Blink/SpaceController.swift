@@ -589,21 +589,6 @@ extension SpaceController {
     view.window?.windowScene?.activationState == UIScene.ActivationState.foregroundActive
   }
   
-//  public override var keyCommands: [UIKeyCommand]? {
-//    guard
-//      let input = KBTracker.shared.input,
-//      foregroundActive
-//    else {
-//      return nil
-//    }
-//    
-//    if let keyCode = stuckKeyCode {
-//      return [UIKeyCommand(input: "", modifierFlags: keyCode.modifierFlags, action: #selector(onStuckOpCommand))]
-//    }
-//    
-//    return input.blinkKeyCommands
-//  }
-  
   @objc func onStuckOpCommand() {
     stuckKeyCode = nil
     presentedViewController?.dismiss(animated: true)
