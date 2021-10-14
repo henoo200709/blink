@@ -40,7 +40,6 @@ class KBWebView: KBWebViewBase {
   
   private var _loaded = false
   private(set) var webViewReady = false
-  private var _blinkKeyPresses: [BlinkCommand] = []
   private var _blinkKeyCommands: [BlinkCommand] = []
   private var _grabsCtrlSpace = false
   
@@ -59,7 +58,6 @@ class KBWebView: KBWebViewBase {
   func _buildCommands(_ cfg: KBConfig) {
     _grabsCtrlSpace = false
     
-    _blinkKeyPresses = []
     _blinkKeyCommands = []
     
     cfg.shortcuts.forEach { shortcut in
@@ -76,11 +74,7 @@ class KBWebView: KBWebViewBase {
         _grabsCtrlSpace = true
       }
       
-      if shortcut.action.isCommand {
-        _blinkKeyCommands.append(cmd)
-      } else {
-        _blinkKeyPresses.append(cmd)
-      }
+      _blinkKeyCommands.append(cmd)
     }
   }
   
@@ -100,10 +94,6 @@ class KBWebView: KBWebViewBase {
       let responder = _findSpaceController()
     else {
       return nil
-    }
-    
-    for cmd in _blinkKeyPresses where cmd.input == input && cmd.modifierFlags == flags {
-      return (cmd, responder)
     }
     
     for cmd in _blinkKeyCommands where cmd.input == input && cmd.modifierFlags == flags {
